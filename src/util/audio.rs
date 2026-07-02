@@ -84,12 +84,13 @@ pub fn get_audio_info(path: &Path) -> Option<AudioInfo> {
     let tagged_file = read_from_path(path).ok()?;
 
     let properties = tagged_file.properties();
-    let duration = properties.duration().as_secs();
+    let duration = properties.duration();
 
     let mut info = AudioInfo {
-        // A zero duration means lofty could not determine it; surface that as
-        // an absent value rather than a misleading 0.
-        duration: (duration > 0).then_some(duration as usize),
+        // An exactly-zero duration means lofty could not determine it;
+        // surface that as an absent value rather than a misleading 0. A
+        // sub-second clip still reports 0 whole seconds.
+        duration: (!duration.is_zero()).then(|| duration.as_secs() as usize),
         bitrate: properties.audio_bitrate().or_else(|| properties.overall_bitrate()),
         sample_rate: properties.sample_rate(),
         ..Default::default()

@@ -17,13 +17,20 @@ impl DurationExtractor for Mp4DurationExtractor {
         let fd = File::open(path)?;
         let mut reader = BufReader::new(fd);
         let context = mp4parse::read_mp4(&mut reader)?;
+        // The track header duration is expressed in movie timescale units
+        // (often 1000, but 600 for QuickTime-origin files).
+        let timescale = context
+            .timescale
+            .map(|ts| ts.0)
+            .filter(|&ts| ts > 0)
+            .unwrap_or(1000);
         Ok(context
             .tracks
             .iter()
             .find(|track| track.track_type == mp4parse::TrackType::Video)
             .and_then(|track| {
                 track.tkhd.as_ref().map(|tkhd| Duration {
-                    length: (tkhd.duration / 1000) as usize,
+                    length: (tkhd.duration / timescale) as usize,
                 })
             }))
     }

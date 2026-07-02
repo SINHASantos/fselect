@@ -147,7 +147,11 @@ fn expr_walk_external_alias(expr: &Expr, own: &HashSet<String>) -> bool {
 fn external_index_depth(path: &Path, root_prefix: &str) -> Option<u32> {
     let s = path.to_string_lossy();
     let under = if cfg!(windows) {
-        s.len() >= root_prefix.len() && s[..root_prefix.len()].eq_ignore_ascii_case(root_prefix)
+        // Compare bytes: a string slice could panic if the paths diverge in
+        // the middle of a multibyte character. A byte-wise ASCII-case match
+        // also guarantees the prefix ends on a char boundary in `s`.
+        s.len() >= root_prefix.len()
+            && s.as_bytes()[..root_prefix.len()].eq_ignore_ascii_case(root_prefix.as_bytes())
     } else {
         s.starts_with(root_prefix)
     };

@@ -718,7 +718,7 @@ impl <'a> Parser<'a> {
                 if s.as_str() == "in" || s.as_str() == "notin" {
                     Self::ensure_single_column_subquery(&list, "IN")?;
                 }
-                let op = Op::from_with_not(s.clone(), not)
+                let op = Op::from_with_not(&s, not)
                     .ok_or_else(|| format!("Unknown operator: {}", s))?;
                 let left = left.ok_or_else(|| "Expected expression before operator".to_string())?;
                 Ok(Some(Expr::op(
@@ -729,7 +729,7 @@ impl <'a> Parser<'a> {
             }
             Some(Lexeme::Operator(s)) => {
                 let right = self.parse_add_sub()?;
-                let op = Op::from_with_not(s.clone(), not);
+                let op = Op::from_with_not(&s, not);
                 match op {
                     Some(op) => {
                         let left = left.ok_or_else(|| "Expected expression before operator".to_string())?;
@@ -793,7 +793,7 @@ impl <'a> Parser<'a> {
         loop {
             let lexeme = self.next_lexeme();
             if let Some(Lexeme::ArithmeticOperator(s)) = lexeme {
-                let new_op = ArithmeticOp::from(s);
+                let new_op = ArithmeticOp::from(&s);
                 match new_op {
                     Some(ArithmeticOp::Add) | Some(ArithmeticOp::Subtract) => {
                         let expr = self.parse_mul_div()?;
@@ -829,7 +829,7 @@ impl <'a> Parser<'a> {
         loop {
             let lexeme = self.next_lexeme();
             if let Some(Lexeme::ArithmeticOperator(s)) = lexeme {
-                let new_op = ArithmeticOp::from(s);
+                let new_op = ArithmeticOp::from(&s);
                 match new_op {
                     Some(ArithmeticOp::Multiply)
                     | Some(ArithmeticOp::Divide)

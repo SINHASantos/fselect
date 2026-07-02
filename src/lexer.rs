@@ -49,7 +49,6 @@ enum LexingMode {
 
 #[derive(Clone)]
 struct LexerState {
-    first_lexeme: bool,
     before_from: bool,
     possible_search_root: bool,
     after_open: bool,
@@ -68,7 +67,6 @@ struct LexerState {
 impl LexerState {
     fn new() -> Self {
         LexerState {
-            first_lexeme: true,
             before_from: true,
             possible_search_root: false,
             after_open: false,
@@ -330,7 +328,6 @@ impl Lexer {
             _ => None,
         };
 
-        self.state.first_lexeme = false;
         self.state.roots_finished = self.state.roots_finished
                 || matches!(lexeme, Some(Lexeme::Where) | Some(Lexeme::Group) | Some(Lexeme::Order) | Some(Lexeme::Limit) | Some(Lexeme::Offset) | Some(Lexeme::Into));
         self.state.possible_search_root = matches!(lexeme, Some(Lexeme::From))

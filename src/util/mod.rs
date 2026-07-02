@@ -291,6 +291,69 @@ pub fn parse_filesize(s: &str) -> Option<u64> {
         };
     }
 
+    if length > 1 && string.ends_with("t") {
+        return match &string[..(length - 1)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(4)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 2 && string.ends_with("tb") {
+        return match &string[..(length - 2)].parse::<f64>() {
+            Ok(size) => Some((*size * 1000.0_f64.powi(4)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 3 && string.ends_with("tib") {
+        return match &string[..(length - 3)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(4)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 1 && string.ends_with("p") {
+        return match &string[..(length - 1)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(5)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 2 && string.ends_with("pb") {
+        return match &string[..(length - 2)].parse::<f64>() {
+            Ok(size) => Some((*size * 1000.0_f64.powi(5)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 3 && string.ends_with("pib") {
+        return match &string[..(length - 3)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(5)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 1 && string.ends_with("e") {
+        return match &string[..(length - 1)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(6)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 2 && string.ends_with("eb") {
+        return match &string[..(length - 2)].parse::<f64>() {
+            Ok(size) => Some((*size * 1000.0_f64.powi(6)) as u64),
+            _ => None,
+        };
+    }
+
+    if length > 3 && string.ends_with("eib") {
+        return match &string[..(length - 3)].parse::<f64>() {
+            Ok(size) => Some((*size * 1024.0_f64.powi(6)) as u64),
+            _ => None,
+        };
+    }
+
     if length > 1 && string.ends_with("b") {
         return match &string[..(length - 1)].parse::<u64>() {
             Ok(size) => Some(*size),
@@ -1767,6 +1830,30 @@ mod tests {
 
         let file_size = "1 kib";
         assert_eq!(parse_filesize(file_size), Some(1024));
+
+        let file_size = "1tb";
+        assert_eq!(parse_filesize(file_size), Some(1_000_000_000_000));
+
+        let file_size = "1tib";
+        assert_eq!(parse_filesize(file_size), Some(1u64 << 40));
+
+        let file_size = "2t";
+        assert_eq!(parse_filesize(file_size), Some(2u64 << 40));
+
+        let file_size = "1pb";
+        assert_eq!(parse_filesize(file_size), Some(1_000_000_000_000_000));
+
+        let file_size = "1pib";
+        assert_eq!(parse_filesize(file_size), Some(1u64 << 50));
+
+        let file_size = "1eb";
+        assert_eq!(parse_filesize(file_size), Some(1_000_000_000_000_000_000));
+
+        let file_size = "1eib";
+        assert_eq!(parse_filesize(file_size), Some(1u64 << 60));
+
+        let file_size = "tib";
+        assert_eq!(parse_filesize(file_size), None);
     }
 
     #[test]

@@ -11,6 +11,30 @@ pub struct SvgDimensionsExtractor;
 
 impl SvgDimensionsExtractor {}
 
+/// Parse an SVG length attribute: a number with an optional unit suffix
+/// (`144`, `144.5`, `144px`, `10cm`). Percentages are relative and have no
+/// absolute pixel value, so they yield `Ok(None)`; a value without a leading
+/// number is invalid data.
+fn parse_svg_length(value: &str) -> io::Result<Option<usize>> {
+    let value = value.trim();
+    let numeric_len = value
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(value.len());
+    let (number, unit) = value.split_at(numeric_len);
+
+    if unit.trim() == "%" {
+        return Ok(None);
+    }
+
+    match number.parse::<f64>() {
+        Ok(v) if v.is_finite() => Ok(Some(v.round() as usize)),
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid SVG length: {}", value),
+        )),
+    }
+}
+
 impl DimensionsExtractor for SvgDimensionsExtractor {
     fn supports_ext(&self, ext_lowercase: &str) -> bool {
         "svg" == ext_lowercase
@@ -23,13 +47,10 @@ impl DimensionsExtractor for SvgDimensionsExtractor {
                 && let (Some(width_value), Some(height_value)) =
                     (attributes.get("width"), attributes.get("height"))
                 {
-                    let width = width_value
-                        .parse::<usize>()
-                        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-                    let height = height_value
-                        .parse::<usize>()
-                        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-                    return Ok(Some(Dimensions { width, height }));
+                    return match (parse_svg_length(width_value)?, parse_svg_length(height_value)?) {
+                        (Some(width), Some(height)) => Ok(Some(Dimensions { width, height })),
+                        _ => Ok(None),
+                    };
                 }
         }
 
@@ -74,6 +95,18 @@ mod test {
         let extractor = SvgDimensionsExtractor;
         let result = extractor.try_read_dimensions(std::path::Path::new("/nonexistent/file.svg"));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_length_units_and_floats() {
+        use super::parse_svg_length;
+        assert_eq!(parse_svg_length("144").unwrap(), Some(144));
+        assert_eq!(parse_svg_length("144px").unwrap(), Some(144));
+        assert_eq!(parse_svg_length("144.4").unwrap(), Some(144));
+        assert_eq!(parse_svg_length(" 10cm ").unwrap(), Some(10));
+        assert_eq!(parse_svg_length("100%").unwrap(), None);
+        assert!(parse_svg_length("bar").is_err());
+        assert!(parse_svg_length("").is_err());
     }
 
     #[test]

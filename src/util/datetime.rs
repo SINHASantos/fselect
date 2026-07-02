@@ -102,7 +102,19 @@ pub fn parse_datetime(s: &str) -> Result<(NaiveDateTime, NaiveDateTime), String>
             }
         }
         None => {
-            if s.len() >= 5 {
+            // Simplified relative-day syntax: any length of `+N`/`-N` counts
+            // as days from today; longer non-numeric strings fall through to
+            // the natural-language parser.
+            if s.len() >= 2
+                && (s.starts_with("+") || s.starts_with("-"))
+                && let Ok(days) = s.parse::<i64>()
+            {
+                let date = Local::now().date_naive() + Duration::days(days);
+                let start = date.and_hms_opt(0, 0, 0).unwrap();
+                let finish = date.and_hms_opt(23, 59, 59).unwrap();
+
+                Ok((start, finish))
+            } else if s.len() >= 5 {
                 let dialect = match *US_DATES.lock().unwrap() {
                     true => Dialect::Us,
                     false => Dialect::Uk,
@@ -128,17 +140,6 @@ pub fn parse_datetime(s: &str) -> Result<(NaiveDateTime, NaiveDateTime), String>
                         Ok((date_time, finish))
                     }
                     _ => Err("Error parsing date/time value: ".to_string() + s),
-                }
-            } else if s.len() >= 2 && (s.starts_with("+") || s.starts_with("-")) {
-                match s.parse::<i64>() {
-                    Ok(days) => {
-                        let date = Local::now().date_naive() + Duration::days(days);
-                        let start = date.and_hms_opt(0, 0, 0).unwrap();
-                        let finish = date.and_hms_opt(23, 59, 59).unwrap();
-
-                        Ok((start, finish))
-                    }
-                    Err(_) => Err("Error parsing date/time value: ".to_string() + s),
                 }
             } else {
                 Err("Error parsing date/time value: ".to_string() + s)

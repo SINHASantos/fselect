@@ -364,13 +364,13 @@ pub fn get_value(
 
             let result = val.powf(power);
             if result.is_nan() || result.is_infinite() {
-                return Err(format!("POWER({}, {}) produces a non-finite result", val, power));
+                return Ok(Variant::empty(VariantType::String));
             }
             Ok(Variant::from_float(result))
         }),
         Function::Sqrt => unary_float(&function_arg, |val| {
             if val < 0.0 {
-                Err(format!("SQRT of a negative number: {}", val))
+                Ok(Variant::empty(VariantType::String))
             } else {
                 Ok(Variant::from_float(val.sqrt()))
             }
@@ -385,17 +385,17 @@ pub fn get_value(
             };
 
             if val <= 0.0 {
-                return Err(format!("LOG of a non-positive number: {}", val));
+                return Ok(Variant::empty(VariantType::String));
             }
             if !base.is_finite() || base <= 0.0 || base == 1.0 {
-                return Err(format!("LOG with invalid base: {}", base));
+                return Ok(Variant::empty(VariantType::String));
             }
 
             Ok(Variant::from_float(val.log(base)))
         }),
         Function::Ln => unary_float(&function_arg, |val| {
             if val <= 0.0 {
-                Err(format!("LN of a non-positive number: {}", val))
+                Ok(Variant::empty(VariantType::String))
             } else {
                 Ok(Variant::from_float(val.ln()))
             }
@@ -403,7 +403,7 @@ pub fn get_value(
         Function::Exp => unary_float(&function_arg, |val| {
             let result = val.exp();
             if result.is_infinite() {
-                return Err(format!("EXP({}) overflows to infinity", val));
+                return Ok(Variant::empty(VariantType::String));
             }
             Ok(Variant::from_float(result))
         }),
@@ -3009,7 +3009,7 @@ mod tests {
     }
 
     #[test]
-    fn sqrt_negative_returns_error() {
+    fn sqrt_negative_returns_empty() {
         let result = get_value(
             &Function::Sqrt,
             String::from("-1"),
@@ -3017,11 +3017,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn ln_zero_returns_error() {
+    fn ln_zero_returns_empty() {
         let result = get_value(
             &Function::Ln,
             String::from("0"),
@@ -3029,11 +3029,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn ln_negative_returns_error() {
+    fn ln_negative_returns_empty() {
         let result = get_value(
             &Function::Ln,
             String::from("-1"),
@@ -3041,11 +3041,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn log_base_one_returns_error() {
+    fn log_base_one_returns_empty() {
         let result = get_value(
             &Function::Log,
             String::from("100"),
@@ -3053,11 +3053,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn log_nan_base_returns_error() {
+    fn log_nan_base_returns_empty() {
         let result = get_value(
             &Function::Log,
             String::from("100"),
@@ -3065,11 +3065,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn log_infinity_base_returns_error() {
+    fn log_infinity_base_returns_empty() {
         let result = get_value(
             &Function::Log,
             String::from("100"),
@@ -3077,11 +3077,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn log_negative_value_returns_error() {
+    fn log_negative_value_returns_empty() {
         let result = get_value(
             &Function::Log,
             String::from("-1"),
@@ -3089,11 +3089,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn power_negative_base_fractional_exp_returns_error() {
+    fn power_negative_base_fractional_exp_returns_empty() {
         let result = get_value(
             &Function::Power,
             String::from("-2"),
@@ -3101,11 +3101,11 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
-    fn power_zero_base_negative_exp_returns_error() {
+    fn power_zero_base_negative_exp_returns_empty() {
         let result = get_value(
             &Function::Power,
             String::from("0"),
@@ -3113,7 +3113,7 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]
@@ -3153,7 +3153,7 @@ mod tests {
     }
 
     #[test]
-    fn exp_overflow_returns_error() {
+    fn exp_overflow_returns_empty() {
         let result = get_value(
             &Function::Exp,
             String::from("710"),
@@ -3161,7 +3161,7 @@ mod tests {
             None,
             &None,
         );
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().to_string(), "");
     }
 
     #[test]

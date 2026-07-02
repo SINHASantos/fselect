@@ -90,7 +90,7 @@ pub fn get_audio_info(path: &Path) -> Option<AudioInfo> {
         // An exactly-zero duration means lofty could not determine it;
         // surface that as an absent value rather than a misleading 0. A
         // sub-second clip still reports 0 whole seconds.
-        duration: (!duration.is_zero()).then(|| duration.as_secs() as usize),
+        duration: (!duration.is_zero()).then_some(duration.as_secs() as usize),
         bitrate: properties.audio_bitrate().or_else(|| properties.overall_bitrate()),
         sample_rate: properties.sample_rate(),
         ..Default::default()

@@ -50,17 +50,16 @@ pub fn is_audio_ext(ext_lowercase: &str) -> bool {
     )
 }
 
+/// Extract a year from a tag value: either a leading 4-digit year (possibly
+/// followed by the rest of a date, e.g. `2023-05-01`) or a value that is
+/// nothing but a shorter year (e.g. `800`). Longer digit runs are not years.
 fn parse_year(value: &str) -> Option<u32> {
-    let digits: String = value
-        .trim_start()
-        .chars()
-        .take_while(|c| c.is_ascii_digit())
-        .take(4)
-        .collect();
-    if digits.len() == 4 {
-        digits.parse().ok()
-    } else {
-        None
+    let value = value.trim();
+    let digit_count = value.chars().take_while(|c| c.is_ascii_digit()).count();
+    match digit_count {
+        4 => value[..4].parse().ok(),
+        1..=3 if digit_count == value.len() => value.parse().ok(),
+        _ => None,
     }
 }
 
@@ -132,6 +131,18 @@ mod tests {
         assert!(!is_audio_ext("m4v"));
         assert!(!is_audio_ext("mkv"));
         assert!(!is_audio_ext("txt"));
+    }
+
+    #[test]
+    fn test_parse_year() {
+        assert_eq!(parse_year("2023"), Some(2023));
+        assert_eq!(parse_year("2023-05-01"), Some(2023));
+        assert_eq!(parse_year(" 2023 "), Some(2023));
+        assert_eq!(parse_year("800"), Some(800));
+        assert_eq!(parse_year("20231"), None);
+        assert_eq!(parse_year("05/01/2023"), None);
+        assert_eq!(parse_year("unknown"), None);
+        assert_eq!(parse_year(""), None);
     }
 
     #[test]

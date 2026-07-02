@@ -155,7 +155,7 @@ fn convert_hgignore_pattern(
 }
 
 static HG_CONVERT_REPLACE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("(\\*\\*|\\?|\\.|\\[|\\]|\\(|\\)|\\^|\\$|\\*)").unwrap()
+    Regex::new("(\\*\\*|\\?|\\.|\\[|\\]|\\(|\\)|\\^|\\$|\\*|\\+|\\{|\\}|\\||\\\\|/)").unwrap()
 });
 
 fn convert_hgignore_glob(glob: &str, file_path: &Path) -> Result<Regex, String> {
@@ -174,6 +174,12 @@ fn convert_hgignore_glob(glob: &str, file_path: &Path) -> Result<Regex, String> 
                     ")" => "\\)",
                     "^" => "\\^",
                     "$" => "\\$",
+                    "+" => "\\+",
+                    "{" => "\\{",
+                    "}" => "\\}",
+                    "|" => "\\|",
+                    "\\" => "\\\\",
+                    "/" => "/",
                     _ => "",
                 }
                 .to_string()
@@ -183,6 +189,10 @@ fn convert_hgignore_glob(glob: &str, file_path: &Path) -> Result<Regex, String> 
         if pattern.is_empty() {
             return Err("Error parsing .hgignore pattern: ".to_string() + glob);
         }
+
+        // `**/` matches any number of leading directories, including none
+        // (the `.*` token can only originate from `**`).
+        pattern = pattern.replace(".*/", "(?:.*/)?");
 
         // Glob patterns are unrooted (they match at any directory level), but
         // must cover whole path components: like Mercurial itself, a match
@@ -212,6 +222,14 @@ fn convert_hgignore_glob(glob: &str, file_path: &Path) -> Result<Regex, String> 
                     ")" => "\\)",
                     "^" => "\\^",
                     "$" => "\\$",
+                    "+" => "\\+",
+                    "{" => "\\{",
+                    "}" => "\\}",
+                    "|" => "\\|",
+                    "\\" => "\\\\",
+                    // Mercurial patterns always use forward slashes; paths
+                    // are matched with native separators on Windows.
+                    "/" => "\\\\",
                     _ => "",
                 }
                 .to_string()
@@ -221,6 +239,10 @@ fn convert_hgignore_glob(glob: &str, file_path: &Path) -> Result<Regex, String> 
         if pattern.is_empty() {
             return Err("Error parsing .hgignore pattern: ".to_string() + glob);
         }
+
+        // `**/` matches any number of leading directories, including none
+        // (the `.*` token can only originate from `**`).
+        pattern = pattern.replace(".*\\\\", "(?:.*\\\\)?");
 
         // See the Unix branch: unrooted, but matches whole path components.
         pattern = String::from("^")
@@ -371,6 +393,45 @@ mod tests {
             "brackets should be escaped but got: {}",
             regex_str
         );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn glob_plus_and_pipe_are_escaped() {
+        let regex = convert_hgignore_glob("c++", Path::new("/repo")).unwrap();
+        assert!(regex.is_match("/repo/c++"), "+ should be literal");
+        assert!(!regex.is_match("/repo/ccc"), "+ should not repeat");
+
+        let regex = convert_hgignore_glob("a|b*", Path::new("/repo")).unwrap();
+        assert!(regex.is_match("/repo/a|bc"), "| should be literal");
+        assert!(!regex.is_match("/repo/ab.txt"), "| should not alternate");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn glob_double_star_slash_matches_zero_dirs() {
+        let regex = convert_hgignore_glob("**/foo", Path::new("/repo")).unwrap();
+        assert!(regex.is_match("/repo/foo"), "**/ should match zero dirs");
+        assert!(regex.is_match("/repo/a/b/foo"), "**/ should match many dirs");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn glob_plus_and_pipe_are_escaped_windows() {
+        let regex = convert_hgignore_glob("c++", Path::new("C:\\repo")).unwrap();
+        assert!(regex.is_match("C:\\repo\\c++"), "+ should be literal");
+        assert!(!regex.is_match("C:\\repo\\ccc"), "+ should not repeat");
+
+        let regex = convert_hgignore_glob("a|b*", Path::new("C:\\repo")).unwrap();
+        assert!(!regex.is_match("C:\\repo\\ab.txt"), "| should not alternate");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn glob_double_star_slash_matches_zero_dirs_windows() {
+        let regex = convert_hgignore_glob("**/foo", Path::new("C:\\repo")).unwrap();
+        assert!(regex.is_match("C:\\repo\\foo"), "**/ should match zero dirs");
+        assert!(regex.is_match("C:\\repo\\a\\b\\foo"), "**/ should match many dirs");
     }
 
     #[cfg(not(windows))]

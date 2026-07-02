@@ -1186,7 +1186,10 @@ impl<'a> Searcher<'a> {
 
         let mut should_update_context = false;
 
-        if let Some(captures) = FIELD_WITH_ALIAS.captures(&column_expr_str) {
+        // Cheap guard: the alias regex requires a dot, and most column
+        // expressions have none, so skip the regex in the per-file hot path.
+        if column_expr_str.contains('.')
+            && let Some(captures) = FIELD_WITH_ALIAS.captures(&column_expr_str) {
             let column_expr_context_name = captures.get(1).unwrap().as_str();
             if self.current_alias.as_deref() == Some(column_expr_context_name) {
                 should_update_context = true;

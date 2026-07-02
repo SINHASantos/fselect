@@ -773,6 +773,7 @@ pub struct ContentStats {
     pub is_text: bool,
     pub char_count: usize,
     pub word_count: usize,
+    pub line_count: usize,
     pub encoding: String,
     pub has_bom: bool,
     pub line_ending: String,
@@ -891,6 +892,12 @@ fn compute_content_stats(bytes: &[u8]) -> ContentStats {
     ContentStats {
         char_count: text.chars().count(),
         word_count: text.split_whitespace().count(),
+        // For binary files the decoded text is empty; count newline bytes in
+        // the body instead, matching the standalone line-count byte scan.
+        line_count: match is_text {
+            true => text.chars().filter(|&c| c == '\n').count(),
+            false => bytecount::count(body, b'\n'),
+        },
         line_ending: detect_line_ending(&text),
         is_text,
         has_bom,
@@ -916,6 +923,7 @@ const CONTENT_CHUNK: usize = 32 * 1024;
 struct ContentScan {
     char_count: usize,
     word_count: usize,
+    newline_count: usize,
     in_word: bool,
     crlf: bool,
     lf: bool,
@@ -926,6 +934,10 @@ struct ContentScan {
 impl ContentScan {
     fn push(&mut self, c: char) {
         self.char_count += 1;
+
+        if c == '\n' {
+            self.newline_count += 1;
+        }
 
         if c.is_whitespace() {
             self.in_word = false;
@@ -1179,6 +1191,9 @@ impl ContentSink for NoBomSink {
                 is_text: false,
                 char_count: 0,
                 word_count: 0,
+                // Binary files still report their newline byte count, matching
+                // the standalone line-count byte scan.
+                line_count: self.latin1.newline_count,
                 encoding: String::new(),
                 has_bom: false,
                 line_ending: String::new(),
@@ -1188,6 +1203,7 @@ impl ContentSink for NoBomSink {
                 is_text: true,
                 char_count: self.utf8.char_count,
                 word_count: self.utf8.word_count,
+                line_count: self.utf8.newline_count,
                 encoding: String::from("ASCII"),
                 has_bom: false,
                 line_ending: self.utf8.line_ending(),
@@ -1197,6 +1213,7 @@ impl ContentSink for NoBomSink {
                 is_text: true,
                 char_count: self.utf8.char_count,
                 word_count: self.utf8.word_count,
+                line_count: self.utf8.newline_count,
                 encoding: String::from("UTF-8"),
                 has_bom: false,
                 line_ending: self.utf8.line_ending(),
@@ -1207,6 +1224,7 @@ impl ContentSink for NoBomSink {
                 is_text: true,
                 char_count: self.byte_count,
                 word_count: self.latin1.word_count,
+                line_count: self.latin1.newline_count,
                 encoding: String::from("ISO-8859-1"),
                 has_bom: false,
                 line_ending: self.latin1.line_ending(),
@@ -1248,6 +1266,7 @@ impl ContentSink for Utf8BomSink {
             is_text: true,
             char_count: self.scan.char_count,
             word_count: self.scan.word_count,
+            line_count: self.scan.newline_count,
             encoding: String::from("UTF-8"),
             has_bom: true,
             line_ending: self.scan.line_ending(),
@@ -1336,6 +1355,7 @@ impl ContentSink for Utf16Sink {
             is_text: true,
             char_count: self.scan.char_count,
             word_count: self.scan.word_count,
+            line_count: self.scan.newline_count,
             encoding: String::from(if self.big_endian { "UTF-16BE" } else { "UTF-16LE" }),
             has_bom: true,
             line_ending: self.scan.line_ending(),
@@ -1400,6 +1420,7 @@ impl ContentSink for Utf32Sink {
             is_text: true,
             char_count: self.scan.char_count,
             word_count: self.scan.word_count,
+            line_count: self.scan.newline_count,
             encoding: String::from(if self.big_endian { "UTF-32BE" } else { "UTF-32LE" }),
             has_bom: true,
             line_ending: self.scan.line_ending(),

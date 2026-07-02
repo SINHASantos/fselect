@@ -97,7 +97,13 @@ impl FileMetadataState {
 
     pub fn update_line_count(&mut self, entry: &DirEntry) {
         if self.line_count.is_none() {
-            self.line_count = Some(get_line_count(entry));
+            // A content-stats pass already streamed the whole file and counted
+            // newlines; reuse it instead of reading the file a second time.
+            if let Some(Some(stats)) = &self.content_stats {
+                self.line_count = Some(Some(stats.line_count));
+            } else {
+                self.line_count = Some(get_line_count(entry));
+            }
         }
     }
 
